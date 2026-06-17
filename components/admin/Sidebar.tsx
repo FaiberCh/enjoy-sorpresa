@@ -21,7 +21,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-56 min-h-screen bg-white border-r border-gray-100 flex flex-col">
+    <aside className="hidden md:flex w-56 min-h-screen bg-white border-r border-gray-100 flex-col">
       <div className="p-5 border-b border-gray-100">
         <div className="flex items-center gap-2">
           <Heart className="text-pink-500 fill-pink-500" size={20} />

@@ -115,7 +115,43 @@ export default function ClientesPage() {
           <p className="text-gray-400">No se encontraron clientes.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <>
+          {/* Vista móvil: cards */}
+          <div className="md:hidden space-y-3">
+            {clientesFiltrados.map((c) => (
+              <div key={c.id} className="bg-white rounded-2xl p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div>
+                    <p className="font-semibold text-gray-800">{c.nombre}</p>
+                    <p className="text-gray-500 text-sm">{c.ciudad}</p>
+                  </div>
+                  <select
+                    value={c.estado_lead}
+                    onChange={(e) => cambiarEstado(c.id, e.target.value as EstadoLead)}
+                    className={`text-xs px-2 py-1 rounded-full font-medium border-0 cursor-pointer focus:outline-none ${estadoColors[c.estado_lead]}`}
+                  >
+                    {estadoOpciones.map((op) => (
+                      <option key={op} value={op}>{op.replace("_", " ")}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-gray-500">{c.whatsapp}</p>
+                  <div className="flex items-center gap-3">
+                    <a href={`/admin/clientes/${c.id}`} className="text-pink-500 hover:text-pink-700" title="Ver detalle">
+                      <Eye size={16} />
+                    </a>
+                    <a href={`https://wa.me/${c.whatsapp}`} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:text-green-700">
+                      <MessageCircle size={16} />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Vista desktop: tabla */}
+        <div className="hidden md:block bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
@@ -174,6 +210,7 @@ export default function ClientesPage() {
             </table>
           </div>
         </div>
+        </>
       )}
     </div>
   )
