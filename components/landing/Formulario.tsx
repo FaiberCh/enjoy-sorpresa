@@ -62,7 +62,10 @@ export default function Formulario() {
         body: JSON.stringify(payload),
       })
 
-      if (!res.ok) throw new Error("Error al enviar")
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error ?? "Error al enviar")
+      }
 
       setEnviado(true)
       reset()
@@ -71,8 +74,9 @@ export default function Formulario() {
         `Hola! Soy *${data.nombre}* de *${data.ciudad}, ${depto}*.\n\nMe interesa: *${data.producto_interes}*\n\n${data.descripcion}${data.fecha_evento ? `\n\nFecha del evento: ${data.fecha_evento}` : ""}`
       )
       window.open(`https://wa.me/573506182545?text=${mensaje}`, "_blank")
-    } catch {
-      alert("Hubo un error. Por favor intenta de nuevo.")
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error desconocido"
+      alert(`Error: ${msg}`)
     } finally {
       setEnviando(false)
     }

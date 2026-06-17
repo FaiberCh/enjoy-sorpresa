@@ -38,8 +38,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true })
   } catch (error) {
-    console.error("Error en /api/pedidos:", error)
-    return NextResponse.json({ error: "Error interno" }, { status: 500 })
+    const msg = error instanceof Error ? error.message : JSON.stringify(error)
+    console.error("Error en /api/pedidos:", msg)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
 
