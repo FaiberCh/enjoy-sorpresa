@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -7,11 +8,15 @@ import { z } from "zod"
 import { Send, CheckCircle } from "lucide-react"
 import { FormularioPedidoData } from "@/types"
 import { productosEjemplo } from "@/lib/data"
+import { COLOMBIA, DEPARTAMENTOS } from "@/lib/colombia"
+
+type FormData = FormularioPedidoData & { departamento: string }
 
 const schema = z.object({
   nombre: z.string().min(2, "Ingresa tu nombre completo"),
   whatsapp: z.string().min(10, "Ingresa un número válido").max(15),
-  ciudad: z.string().min(2, "Ingresa tu ciudad"),
+  departamento: z.string().min(1, "Selecciona un departamento"),
+  ciudad: z.string().min(1, "Selecciona tu ciudad"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   producto_interes: z.string().min(1, "Selecciona un producto"),
   descripcion: z.string().min(10, "Cuéntanos más sobre tu pedido"),
@@ -29,20 +34,32 @@ export default function Formulario() {
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
     reset,
-  } = useForm<FormularioPedidoData>({
+  } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { acepta_promociones: true, acepta_datos: false },
   })
 
-  const onSubmit = async (data: FormularioPedidoData) => {
+  const departamento = watch("departamento")
+  const ciudadesDisponibles = departamento ? (COLOMBIA[departamento] ?? []) : []
+
+  useEffect(() => {
+    setValue("ciudad", "")
+  }, [departamento, setValue])
+
+  const onSubmit = async (data: FormData) => {
     setEnviando(true)
     try {
+      const { departamento: depto, ...rest } = data
+      const payload = { ...rest, ciudad: `${data.ciudad}, ${depto}` }
+
       const res = await fetch("/api/pedidos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       })
 
       if (!res.ok) throw new Error("Error al enviar")
@@ -51,7 +68,7 @@ export default function Formulario() {
       reset()
 
       const mensaje = encodeURIComponent(
-        `Hola! Soy *${data.nombre}* de *${data.ciudad}*.\n\nMe interesa: *${data.producto_interes}*\n\n${data.descripcion}${data.fecha_evento ? `\n\nFecha del evento: ${data.fecha_evento}` : ""}`
+        `Hola! Soy *${data.nombre}* de *${data.ciudad}, ${depto}*.\n\nMe interesa: *${data.producto_interes}*\n\n${data.descripcion}${data.fecha_evento ? `\n\nFecha del evento: ${data.fecha_evento}` : ""}`
       )
       window.open(`https://wa.me/573506182545?text=${mensaje}`, "_blank")
     } catch {
@@ -94,6 +111,7 @@ export default function Formulario() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {/* Nombre y WhatsApp */}
           <div className="grid sm:grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -124,21 +142,50 @@ export default function Formulario() {
             </div>
           </div>
 
+          {/* Departamento y Ciudad en cascada */}
           <div className="grid sm:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Departamento *
+              </label>
+              <select
+                {...register("departamento")}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-200 bg-white"
+              >
+                <option value="">Selecciona un departamento</option>
+                {DEPARTAMENTOS.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+              {errors.departamento && (
+                <p className="text-red-500 text-xs mt-1">{errors.departamento.message}</p>
+              )}
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Ciudad *
               </label>
-              <input
+              <select
                 {...register("ciudad")}
-                placeholder="Tu ciudad"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-200"
-              />
+                disabled={!departamento}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-200 bg-white disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+              >
+                <option value="">
+                  {departamento ? "Selecciona tu ciudad" : "Primero selecciona un departamento"}
+                </option>
+                {ciudadesDisponibles.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
               {errors.ciudad && (
                 <p className="text-red-500 text-xs mt-1">{errors.ciudad.message}</p>
               )}
             </div>
+          </div>
 
+          {/* Email y Fecha */}
+          <div className="grid sm:grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Email (opcional)
@@ -147,6 +194,17 @@ export default function Formulario() {
                 {...register("email")}
                 placeholder="tu@email.com"
                 type="email"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-200"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Fecha del evento (opcional)
+              </label>
+              <input
+                {...register("fecha_evento")}
+                type="date"
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-200"
               />
             </div>
@@ -186,17 +244,6 @@ export default function Formulario() {
             {errors.descripcion && (
               <p className="text-red-500 text-xs mt-1">{errors.descripcion.message}</p>
             )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Fecha del evento (opcional)
-            </label>
-            <input
-              {...register("fecha_evento")}
-              type="date"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-200"
-            />
           </div>
 
           <div className="space-y-3 pt-2">
