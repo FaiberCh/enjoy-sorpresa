@@ -4,6 +4,7 @@ import Catalogo from "@/components/landing/Catalogo"
 import Galeria from "@/components/landing/Galeria"
 import Formulario from "@/components/landing/Formulario"
 import Footer from "@/components/landing/Footer"
+import WhatsAppButton from "@/components/landing/WhatsAppButton"
 
 export default function Home() {
   return (
@@ -14,6 +15,7 @@ export default function Home() {
       <Galeria />
       <Formulario />
       <Footer />
+      <WhatsAppButton />
     </main>
   )
 }

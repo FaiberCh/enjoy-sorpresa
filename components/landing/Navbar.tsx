@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Menu, X, Heart } from "lucide-react"
+import { whatsappUrl } from "./WhatsAppButton"
 
 const links = [
   { href: "#inicio", label: "Inicio" },
@@ -33,7 +34,7 @@ export default function Navbar() {
             </a>
           ))}
           <a
-            href="https://wa.me/573506182545"
+            href={whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="bg-pink-500 hover:bg-pink-600 text-white text-sm px-4 py-2 rounded-full transition-colors"
@@ -63,7 +64,7 @@ export default function Navbar() {
             </a>
           ))}
           <a
-            href="https://wa.me/573506182545"
+            href={whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="bg-pink-500 text-white text-center px-4 py-2 rounded-full"
