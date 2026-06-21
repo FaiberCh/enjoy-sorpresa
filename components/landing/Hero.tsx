@@ -1,4 +1,4 @@
-import { Heart, Star, Gift } from "lucide-react"
+import { Heart, Star } from "lucide-react"
 
 export default function Hero() {
   return (
@@ -59,9 +59,11 @@ export default function Hero() {
         <div className="relative flex justify-center">
           <div className="relative w-72 h-72 md:w-96 md:h-96">
             <div className="absolute inset-0 bg-pink-200 rounded-full opacity-30 animate-pulse" />
-            <div className="absolute inset-4 bg-pink-100 rounded-full flex items-center justify-center">
-              <Gift size={120} className="text-pink-400" />
-            </div>
+            <img
+              src="/sello.webp"
+              alt="En Joy Sorpresa - Sorprende con amor"
+              className="absolute inset-0 w-full h-full object-contain drop-shadow-xl"
+            />
             <div className="absolute -top-4 -right-4 bg-white shadow-lg rounded-2xl p-3 flex items-center gap-2">
               <Heart size={18} className="text-pink-500 fill-pink-500" />
               <span className="text-sm font-medium text-gray-700">Momentos únicos</span>
