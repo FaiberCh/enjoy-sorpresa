@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, usePathname } from "next/navigation"
-import { Heart, LayoutDashboard, Users, ShoppingBag, LogOut, PlusCircle, UserPlus } from "lucide-react"
+import { LayoutDashboard, Users, ShoppingBag, LogOut, PlusCircle, UserPlus } from "lucide-react"
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -23,13 +23,8 @@ export default function Sidebar() {
   return (
     <aside className="hidden md:flex w-56 min-h-screen bg-white border-r border-gray-100 flex-col">
       <div className="p-5 border-b border-gray-100">
-        <div className="flex items-center gap-2">
-          <Heart className="text-pink-500 fill-pink-500" size={20} />
-          <div>
-            <p className="text-sm font-bold text-pink-600">En Joy</p>
-            <p className="text-xs text-gray-400">Administración</p>
-          </div>
-        </div>
+        <img src="/logo.webp" alt="En Joy Sorpresa" className="h-10 w-auto mb-1" />
+        <p className="text-xs text-gray-400">Administración</p>
       </div>
 
       <nav className="flex-1 p-3 space-y-1">

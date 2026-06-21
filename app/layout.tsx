@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "En Joy Sorpresa | Desayunos y Detalles Personalizados",
   description:
     "Regalamos momentos inolvidables. Desayunos sorpresa, detalles personalizados y decoraciones únicas para tus ocasiones especiales. Colombia.",
+  icons: { icon: "/logo.webp" },
 }
 
 export default function RootLayout({

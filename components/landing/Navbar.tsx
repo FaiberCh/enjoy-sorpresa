@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Menu, X, Heart } from "lucide-react"
+import { Menu, X } from "lucide-react"
 import { whatsappUrl } from "./WhatsAppButton"
 
 const links = [
@@ -17,10 +17,8 @@ export default function Navbar() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm shadow-sm">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <a href="#inicio" className="flex items-center gap-2">
-          <Heart className="text-pink-500 fill-pink-500" size={22} />
-          <span className="text-xl font-bold text-pink-600">En Joy</span>
-          <span className="text-sm text-gray-500 font-medium">Sorpresa</span>
+        <a href="#inicio">
+          <img src="/logo.webp" alt="En Joy Sorpresa" className="h-10 w-auto" />
         </a>
 
         <nav className="hidden md:flex items-center gap-6">
