@@ -18,7 +18,7 @@ export default function Navbar() {
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm shadow-sm">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <a href="#inicio">
-          <img src="/logo.webp" alt="En Joy Sorpresa" className="h-10 w-auto" />
+          <img src="/logo.webp" alt="En Joy Sorpresa" className="h-14 w-auto" />
         </a>
 
         <nav className="hidden md:flex items-center gap-6">
