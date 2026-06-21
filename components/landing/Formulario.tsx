@@ -101,6 +101,7 @@ export default function Formulario() {
   return (
     <section id="pedido" className="py-20 bg-white">
       <div className="max-w-2xl mx-auto px-4">
+        <div className="bg-white rounded-3xl shadow-xl shadow-pink-100 border border-pink-50 px-8 py-10">
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-gray-800 mb-4">
             Haz tu <span className="text-pink-500">Pedido</span>
@@ -283,6 +284,7 @@ export default function Formulario() {
             {enviando ? "Enviando..." : "Enviar Pedido por WhatsApp"}
           </button>
         </form>
+        </div>
       </div>
     </section>
   )
