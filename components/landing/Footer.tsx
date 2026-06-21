@@ -1,16 +1,13 @@
-import { Heart, ExternalLink, MessageCircle } from "lucide-react"
+import { ExternalLink, MessageCircle } from "lucide-react"
 
 export default function Footer() {
   return (
     <footer className="bg-gray-900 text-white py-12">
       <div className="max-w-6xl mx-auto px-4">
         <div className="grid md:grid-cols-3 gap-8 mb-8">
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Heart className="text-pink-400 fill-pink-400" size={20} />
-              <span className="text-lg font-bold">En Joy Sorpresa</span>
-            </div>
-            <p className="text-gray-400 text-sm leading-relaxed">
+          <div className="flex flex-col items-center">
+            <img src="/sello.webp" alt="En Joy Sorpresa" className="w-44 h-44 mb-3" />
+            <p className="text-gray-400 text-sm leading-relaxed text-center">
               Regalamos momentos inolvidables. Desayunos sorpresa, detalles
               personalizados y decoraciones únicas para tus ocasiones especiales.
             </p>

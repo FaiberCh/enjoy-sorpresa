@@ -12,6 +12,9 @@ export default function Home() {
       <Navbar />
       <Hero />
       <Catalogo />
+      <div className="w-full overflow-hidden h-80 md:h-[420px]">
+        <img src="/banner.webp" alt="En Joy Sorpresa" className="w-full h-full object-cover object-center" />
+      </div>
       <Galeria />
       <Formulario />
       <Footer />
