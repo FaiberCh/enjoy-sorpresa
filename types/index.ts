@@ -21,7 +21,22 @@ export interface Producto {
   precio: number
   categoria: string
   imagen_url: string
+  imagenes?: string[]
   disponible: boolean
+  created_at?: string
+}
+
+export interface Banner {
+  id: string
+  titulo: string
+  subtitulo: string
+  imagen_url: string
+  boton_texto: string
+  boton_url: string
+  color_fondo: string
+  orden: number
+  activo: boolean
+  created_at: string
 }
 
 export interface Pedido {

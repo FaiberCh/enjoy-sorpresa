@@ -1,12 +1,14 @@
 "use client"
 
 import { useRouter, usePathname } from "next/navigation"
-import { LayoutDashboard, Users, ShoppingBag, LogOut, PlusCircle, UserPlus } from "lucide-react"
+import { LayoutDashboard, Users, ShoppingBag, LogOut, PlusCircle, UserPlus, Package, Megaphone } from "lucide-react"
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
   { href: "/admin/clientes", label: "Clientes", icon: Users },
+  { href: "/admin/productos", label: "Productos", icon: Package },
+  { href: "/admin/banners", label: "Banners", icon: Megaphone },
   { href: "/admin/nuevo-pedido", label: "Nuevo Pedido", icon: PlusCircle },
   { href: "/admin/nuevo-cliente", label: "Nuevo Cliente", icon: UserPlus },
 ]

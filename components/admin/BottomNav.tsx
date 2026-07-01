@@ -1,7 +1,7 @@
 "use client"
 
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, ShoppingBag, Plus } from "lucide-react"
+import { LayoutDashboard, Users, ShoppingBag, Plus, Package, Megaphone } from "lucide-react"
 import { useState } from "react"
 
 const navItems = [
@@ -31,10 +31,24 @@ export default function BottomNav() {
             </a>
             <a
               href="/admin/nuevo-cliente"
-              className="flex items-center gap-3 px-5 py-3.5 text-sm text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors"
+              className="flex items-center gap-3 px-5 py-3.5 text-sm text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors border-b border-gray-50"
             >
               <Users size={16} />
               Nuevo Cliente
+            </a>
+            <a
+              href="/admin/productos"
+              className="flex items-center gap-3 px-5 py-3.5 text-sm text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors border-b border-gray-50"
+            >
+              <Package size={16} />
+              Productos
+            </a>
+            <a
+              href="/admin/banners"
+              className="flex items-center gap-3 px-5 py-3.5 text-sm text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors"
+            >
+              <Megaphone size={16} />
+              Banners
             </a>
           </div>
         </div>
