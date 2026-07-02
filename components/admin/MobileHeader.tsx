@@ -2,12 +2,13 @@
 
 import { useRouter } from "next/navigation"
 import { LogOut } from "lucide-react"
+import { logout } from "@/lib/admin/logout"
 
 export default function MobileHeader() {
   const router = useRouter()
 
   const handleLogout = async () => {
-    await fetch("/api/admin/auth", { method: "DELETE" })
+    await logout()
     router.push("/admin")
   }
 

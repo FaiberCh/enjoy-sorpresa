@@ -1,7 +1,19 @@
 export const dynamic = "force-dynamic"
 
-import { supabase } from "@/lib/supabase"
+import Link from "next/link"
+import { supabaseAdmin as supabase } from "@/lib/supabase"
 import { Users, ShoppingBag, TrendingUp, Clock } from "lucide-react"
+import { estadoPedidoColors } from "@/lib/admin/estado-colors"
+import type { EstadoPedido } from "@/types"
+
+type PedidoReciente = {
+  id: string
+  cliente_id: string
+  producto_interes: string
+  ciudad: string
+  estado: EstadoPedido
+  cliente: { nombre: string } | null
+}
 
 async function getStats() {
   const [{ count: totalClientes }, { count: totalPedidos }, { count: pedidosPendientes }, { count: compraron }] =
@@ -20,31 +32,24 @@ async function getStats() {
   }
 }
 
-async function getUltimosPedidos() {
+async function getUltimosPedidos(): Promise<PedidoReciente[]> {
   const { data } = await supabase
     .from("pedidos")
-    .select("*, cliente:clientes(nombre, whatsapp, ciudad)")
+    .select("id, cliente_id, producto_interes, ciudad, estado, cliente:clientes(nombre)")
     .order("created_at", { ascending: false })
     .limit(5)
 
-  return data ?? []
-}
-
-const estadoColors: Record<string, string> = {
-  pendiente: "bg-yellow-100 text-yellow-700",
-  en_proceso: "bg-blue-100 text-blue-700",
-  entregado: "bg-green-100 text-green-700",
-  cancelado: "bg-red-100 text-red-700",
+  return (data as unknown as PedidoReciente[]) ?? []
 }
 
 export default async function Dashboard() {
   const [stats, pedidos] = await Promise.all([getStats(), getUltimosPedidos()])
 
   const statCards = [
-    { label: "Total Clientes", value: stats.totalClientes, icon: Users, color: "text-pink-500" },
-    { label: "Total Pedidos", value: stats.totalPedidos, icon: ShoppingBag, color: "text-purple-500" },
-    { label: "Pedidos Pendientes", value: stats.pedidosPendientes, icon: Clock, color: "text-yellow-500" },
-    { label: "Compraron", value: stats.compraron, icon: TrendingUp, color: "text-green-500" },
+    { label: "Total Clientes", value: stats.totalClientes, icon: Users, color: "text-pink-500", href: "/admin/clientes" },
+    { label: "Total Pedidos", value: stats.totalPedidos, icon: ShoppingBag, color: "text-pink-500", href: "/admin/pedidos" },
+    { label: "Pedidos Pendientes", value: stats.pedidosPendientes, icon: Clock, color: "text-yellow-500", href: "/admin/pedidos?estado=pendiente" },
+    { label: "Compraron", value: stats.compraron, icon: TrendingUp, color: "text-emerald-600", href: "/admin/clientes?filtro=compro" },
   ]
 
   return (
@@ -52,19 +57,24 @@ export default async function Dashboard() {
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {statCards.map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white rounded-2xl p-5 shadow-sm">
+        {statCards.map(({ label, value, icon: Icon, color, href }) => (
+          <Link key={label} href={href} className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow block">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm text-gray-500">{label}</p>
               <Icon size={20} className={color} />
             </div>
             <p className="text-3xl font-bold text-gray-800">{value}</p>
-          </div>
+          </Link>
         ))}
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Últimos Pedidos</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-800">Últimos Pedidos</h2>
+          <Link href="/admin/pedidos" className="text-sm text-pink-600 hover:text-pink-700 font-medium transition-colors">
+            Ver todos
+          </Link>
+        </div>
         {pedidos.length === 0 ? (
           <p className="text-gray-400 text-sm">No hay pedidos aún.</p>
         ) : (
@@ -79,13 +89,17 @@ export default async function Dashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {pedidos.map((p: any) => (
-                  <tr key={p.id}>
-                    <td className="py-3 font-medium text-gray-800">{p.cliente?.nombre}</td>
+                {pedidos.map((p) => (
+                  <tr key={p.id} className="hover:bg-gray-50">
+                    <td className="py-3 font-medium text-gray-800">
+                      <Link href={`/admin/clientes/${p.cliente_id}`} className="hover:text-pink-600 transition-colors">
+                        {p.cliente?.nombre}
+                      </Link>
+                    </td>
                     <td className="py-3 text-gray-600">{p.producto_interes}</td>
                     <td className="py-3 text-gray-500">{p.ciudad}</td>
                     <td className="py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${estadoColors[p.estado]}`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${estadoPedidoColors[p.estado]}`}>
                         {p.estado.replace("_", " ")}
                       </span>
                     </td>

@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation"
 import { LayoutDashboard, Users, ShoppingBag, LogOut, PlusCircle, UserPlus, Package, Megaphone } from "lucide-react"
+import { logout } from "@/lib/admin/logout"
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -18,7 +19,7 @@ export default function Sidebar() {
   const router = useRouter()
 
   const handleLogout = async () => {
-    await fetch("/api/admin/auth", { method: "DELETE" })
+    await logout()
     router.push("/admin")
   }
 

@@ -1,12 +1,27 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
-import { FormularioPedidoData } from "@/types"
+import { z } from "zod"
+import { supabaseAdmin } from "@/lib/supabase"
+
+const pedidoSchema = z.object({
+  nombre: z.string().trim().min(1).max(200),
+  whatsapp: z.string().trim().min(7).max(30),
+  ciudad: z.string().trim().min(1).max(200),
+  email: z.string().trim().email().optional().or(z.literal("")),
+  producto_interes: z.string().trim().min(1).max(300),
+  descripcion: z.string().trim().min(1).max(2000),
+  fecha_evento: z.string().trim().optional().or(z.literal("")),
+  acepta_promociones: z.boolean().optional(),
+})
 
 export async function POST(req: NextRequest) {
-  try {
-    const body: FormularioPedidoData = await req.json()
+  const parsed = pedidoSchema.safeParse(await req.json().catch(() => null))
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Datos inválidos", details: parsed.error.flatten() }, { status: 400 })
+  }
+  const body = parsed.data
 
-    const { data: cliente, error: clienteError } = await supabase
+  try {
+    const { data: cliente, error: clienteError } = await supabaseAdmin
       .from("clientes")
       .upsert(
         {
@@ -24,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     if (clienteError) throw clienteError
 
-    const { error: pedidoError } = await supabase.from("pedidos").insert({
+    const { error: pedidoError } = await supabaseAdmin.from("pedidos").insert({
       cliente_id: cliente.id,
       producto_interes: body.producto_interes,
       descripcion: body.descripcion,
@@ -44,7 +59,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("pedidos")
     .select("*, cliente:clientes(*)")
     .order("created_at", { ascending: false })

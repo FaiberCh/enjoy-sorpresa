@@ -1,3 +1,4 @@
+import Image from "next/image"
 import { ExternalLink, MessageCircle } from "lucide-react"
 
 export default function Footer() {
@@ -6,7 +7,7 @@ export default function Footer() {
       <div className="max-w-6xl mx-auto px-4">
         <div className="grid md:grid-cols-3 gap-8 mb-8">
           <div className="flex flex-col items-center">
-            <img src="/sello.webp" alt="En Joy Sorpresa" className="w-44 h-44 mb-3" />
+            <Image src="/sello.webp" alt="" width={176} height={176} className="w-44 h-44 mb-3" />
             <p className="text-gray-400 text-sm leading-relaxed text-center">
               Regalamos momentos inolvidables. Desayunos sorpresa, detalles
               personalizados y decoraciones únicas para tus ocasiones especiales.
@@ -49,7 +50,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-gray-800 pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-gray-500">
-          <p>© 2024 En Joy Sorpresa. Todos los derechos reservados.</p>
+          <p>© {new Date().getFullYear()} En Joy Sorpresa. Todos los derechos reservados.</p>
           <p>By @juliethbarragan · Colombia</p>
         </div>
       </div>

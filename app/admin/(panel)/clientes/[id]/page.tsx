@@ -3,24 +3,12 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { MessageCircle, ArrowLeft, ShoppingBag } from "lucide-react"
-import { Cliente, Pedido, EstadoLead, EstadoPedido } from "@/types"
-
-const estadoLeadColors: Record<EstadoLead, string> = {
-  interesado: "bg-blue-100 text-blue-700",
-  en_negociacion: "bg-purple-100 text-purple-700",
-  compro: "bg-green-100 text-green-700",
-  no_compro: "bg-red-100 text-red-700",
-  inactivo: "bg-gray-100 text-gray-500",
-}
-
-const estadoPedidoColors: Record<EstadoPedido, string> = {
-  pendiente: "bg-yellow-100 text-yellow-700",
-  en_proceso: "bg-blue-100 text-blue-700",
-  entregado: "bg-green-100 text-green-700",
-  cancelado: "bg-red-100 text-red-700",
-}
-
-const estadoLeadOpciones: EstadoLead[] = ["interesado", "en_negociacion", "compro", "no_compro", "inactivo"]
+import { Cliente, Pedido, EstadoLead } from "@/types"
+import { estadoLeadColors, estadoPedidoColors, estadoLeadOpciones } from "@/lib/admin/estado-colors"
+import { apiGet, apiPatch } from "@/lib/admin/api"
+import { formatFecha } from "@/lib/admin/date"
+import { useUndoToast } from "@/lib/admin/useUndoToast"
+import UndoToast from "@/components/admin/UndoToast"
 
 export default function ClienteDetallePage() {
   const { id } = useParams<{ id: string }>()
@@ -28,25 +16,31 @@ export default function ClienteDetallePage() {
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [loading, setLoading] = useState(true)
+  const { toast, showUndo, dismiss } = useUndoToast()
 
   const fetchData = async () => {
-    const res = await fetch(`/api/clientes/${id}`)
-    if (!res.ok) { router.push("/admin/clientes"); return }
-    const data = await res.json()
-    setCliente(data.cliente)
-    setPedidos(data.pedidos)
-    setLoading(false)
+    try {
+      const data = await apiGet<{ cliente: Cliente; pedidos: Pedido[] }>(`/api/clientes/${id}`)
+      setCliente(data.cliente)
+      setPedidos(data.pedidos)
+      setLoading(false)
+    } catch {
+      router.push("/admin/clientes")
+    }
   }
 
   useEffect(() => { fetchData() }, [id])
 
   const cambiarEstado = async (estado_lead: EstadoLead) => {
-    await fetch("/api/clientes", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, estado_lead }),
-    })
-    fetchData()
+    const updated = await apiPatch<Cliente>("/api/clientes", { id, estado_lead })
+    setCliente((prev) => prev ? { ...prev, ...updated } : prev)
+  }
+
+  const handleCambiarEstado = (estado_lead: EstadoLead) => {
+    if (!cliente) return
+    const anterior = cliente.estado_lead
+    cambiarEstado(estado_lead)
+    showUndo(`Estado actualizado a "${estado_lead.replace("_", " ")}"`, () => cambiarEstado(anterior))
   }
 
   if (loading) return <p className="text-gray-400 text-sm">Cargando...</p>
@@ -88,8 +82,8 @@ export default function ClienteDetallePage() {
             <p className="text-gray-400 mb-1">Estado</p>
             <select
               value={cliente.estado_lead}
-              onChange={(e) => cambiarEstado(e.target.value as EstadoLead)}
-              className={`text-xs px-3 py-1.5 rounded-full font-medium border-0 cursor-pointer focus:outline-none ${estadoLeadColors[cliente.estado_lead]}`}
+              onChange={(e) => handleCambiarEstado(e.target.value as EstadoLead)}
+              className={`text-xs px-3 py-1.5 rounded-full font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-pink-200 ${estadoLeadColors[cliente.estado_lead]}`}
             >
               {estadoLeadOpciones.map((op) => (
                 <option key={op} value={op}>{op.replace("_", " ")}</option>
@@ -105,14 +99,14 @@ export default function ClienteDetallePage() {
           </div>
           <div>
             <p className="text-gray-400 mb-1">Acepta promociones</p>
-            <span className={`text-xs px-2 py-1 rounded-full font-medium ${cliente.acepta_promociones ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+            <span className={`text-xs px-2 py-1 rounded-full font-medium ${cliente.acepta_promociones ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
               {cliente.acepta_promociones ? "Sí" : "No"}
             </span>
           </div>
         </div>
 
         <div className="mt-4 text-xs text-gray-400">
-          Cliente desde {new Date(cliente.created_at).toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })}
+          Cliente desde {formatFecha(cliente.created_at, { year: "numeric", month: "long", day: "numeric" })}
         </div>
       </div>
 
@@ -141,7 +135,7 @@ export default function ClienteDetallePage() {
                       <span className="text-xs text-gray-400">Evento: {p.fecha_evento}</span>
                     )}
                     <span className="text-xs text-gray-400">
-                      {new Date(p.created_at).toLocaleDateString("es-CO")}
+                      {formatFecha(p.created_at)}
                     </span>
                     <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
                       {p.origen}
@@ -155,6 +149,14 @@ export default function ClienteDetallePage() {
             </div>
           ))}
         </div>
+      )}
+
+      {toast && (
+        <UndoToast
+          message={toast.message}
+          onUndo={toast.onUndo}
+          onDismiss={dismiss}
+        />
       )}
     </div>
   )

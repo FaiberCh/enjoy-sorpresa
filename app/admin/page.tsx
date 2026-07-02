@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Heart, Lock } from "lucide-react"
+import { apiPost, ApiError } from "@/lib/admin/api"
 
 export default function AdminLogin() {
   const [password, setPassword] = useState("")
@@ -15,16 +16,11 @@ export default function AdminLogin() {
     setLoading(true)
     setError("")
 
-    const res = await fetch("/api/admin/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    })
-
-    if (res.ok) {
+    try {
+      await apiPost("/api/admin/auth", { password })
       router.push("/admin/dashboard")
-    } else {
-      setError("Contraseña incorrecta")
+    } catch (err) {
+      setError(err instanceof ApiError && err.status === 429 ? err.message : "Contraseña incorrecta")
       setLoading(false)
     }
   }

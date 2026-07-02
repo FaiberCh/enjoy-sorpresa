@@ -1,12 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import Image from "next/image"
 import { X } from "lucide-react"
 import { galeriaEjemplo } from "@/lib/data"
+import { useFocusTrap } from "@/lib/useFocusTrap"
 
 export default function Galeria() {
   const [seleccionada, setSeleccionada] = useState<string | null>(null)
+  const cerrar = useCallback(() => setSeleccionada(null), [])
+  const lightboxRef = useFocusTrap<HTMLDivElement>(seleccionada !== null, cerrar)
 
   return (
     <section id="galeria" className="py-20 bg-pink-50">
@@ -24,13 +27,17 @@ export default function Galeria() {
           {galeriaEjemplo.map((url, i) => (
             <div
               key={i}
-              className="break-inside-avoid rounded-2xl overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+              role="button"
+              tabIndex={0}
+              aria-label={`Ampliar foto ${i + 1} de decoración y regalos personalizados`}
+              className="break-inside-avoid rounded-2xl overflow-hidden cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-pink-400 focus:ring-offset-2"
               onClick={() => setSeleccionada(url)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSeleccionada(url) } }}
             >
               <div className="relative w-full" style={{ paddingBottom: i % 3 === 0 ? "130%" : "80%" }}>
                 <Image
                   src={url}
-                  alt={`Foto galería ${i + 1}`}
+                  alt={`Decoración y regalo personalizado de En Joy Sorpresa — foto ${i + 1}`}
                   fill
                   className="object-cover"
                 />
@@ -53,19 +60,24 @@ export default function Galeria() {
 
       {seleccionada && (
         <div
+          ref={lightboxRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Foto ampliada de la galería"
           className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
           onClick={() => setSeleccionada(null)}
         >
           <button
-            className="absolute top-4 right-4 text-white hover:text-pink-300"
+            aria-label="Cerrar"
+            className="absolute top-4 right-4 text-white hover:text-pink-300 focus:outline-none focus:ring-2 focus:ring-white rounded-full"
             onClick={() => setSeleccionada(null)}
           >
-            <X size={32} />
+            <X size={32} aria-hidden="true" />
           </button>
-          <div className="relative w-full max-w-2xl h-[80vh]">
+          <div className="relative w-full max-w-2xl h-[80vh]" onClick={(e) => e.stopPropagation()}>
             <Image
               src={seleccionada}
-              alt="Foto ampliada"
+              alt="Foto ampliada de decoración y regalo personalizado de En Joy Sorpresa"
               fill
               className="object-contain"
             />

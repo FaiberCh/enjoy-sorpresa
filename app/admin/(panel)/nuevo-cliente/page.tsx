@@ -2,16 +2,19 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { CheckCircle } from "lucide-react"
+import { CheckCircle, AlertTriangle } from "lucide-react"
+import { apiPost } from "@/lib/admin/api"
 
 export default function NuevoClientePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [guardado, setGuardado] = useState(false)
+  const [formError, setFormError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
+    setFormError("")
 
     const form = new FormData(e.currentTarget)
     const data = {
@@ -23,17 +26,12 @@ export default function NuevoClientePage() {
       acepta_promociones: form.get("acepta_promociones") === "on",
     }
 
-    const res = await fetch("/api/clientes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    })
-
-    if (res.ok) {
+    try {
+      await apiPost("/api/clientes", data)
       setGuardado(true)
       setTimeout(() => router.push("/admin/clientes"), 1500)
-    } else {
-      alert("Error al guardar el cliente")
+    } catch {
+      setFormError("No se pudo guardar el cliente. Revisa tu conexión e intenta de nuevo.")
       setLoading(false)
     }
   }
@@ -97,6 +95,12 @@ export default function NuevoClientePage() {
           <input type="checkbox" name="acepta_promociones" className="accent-pink-500" />
           <span className="text-sm text-gray-600">Acepta recibir promociones</span>
         </label>
+
+        {formError && (
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />{formError}
+          </div>
+        )}
 
         <button type="submit" disabled={loading}
           className="w-full bg-pink-500 hover:bg-pink-600 disabled:bg-pink-300 text-white py-3 rounded-full font-medium transition-colors">

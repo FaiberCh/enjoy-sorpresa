@@ -1,9 +1,26 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
-import { Cliente, EstadoLead } from "@/types"
+import { z } from "zod"
+import { supabaseAdmin } from "@/lib/supabase"
+import { EstadoLead } from "@/types"
+
+const estadoLeadValues = ["interesado", "en_negociacion", "compro", "no_compro", "inactivo"] as const
+
+const createSchema = z.object({
+  nombre: z.string().trim().min(1),
+  whatsapp: z.string().trim().min(7),
+  ciudad: z.string().trim().min(1),
+  email: z.string().trim().email().optional().or(z.literal("")).nullable(),
+  estado_lead: z.enum(estadoLeadValues).optional(),
+  acepta_promociones: z.boolean().optional(),
+})
+
+const patchSchema = z.object({
+  id: z.string().uuid(),
+  estado_lead: z.enum(estadoLeadValues),
+})
 
 export async function GET() {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("clientes")
     .select("*")
     .order("created_at", { ascending: false })
@@ -13,10 +30,14 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    const body: Partial<Cliente> = await req.json()
+  const parsed = createSchema.safeParse(await req.json().catch(() => null))
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Datos inválidos", details: parsed.error.flatten() }, { status: 400 })
+  }
+  const body = parsed.data
 
-    const { data, error } = await supabase
+  try {
+    const { data, error } = await supabaseAdmin
       .from("clientes")
       .insert({
         nombre: body.nombre,
@@ -38,16 +59,22 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  try {
-    const { id, estado_lead }: { id: string; estado_lead: EstadoLead } = await req.json()
+  const parsed = patchSchema.safeParse(await req.json().catch(() => null))
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Datos inválidos", details: parsed.error.flatten() }, { status: 400 })
+  }
+  const { id, estado_lead }: { id: string; estado_lead: EstadoLead } = parsed.data
 
-    const { error } = await supabase
+  try {
+    const { data, error } = await supabaseAdmin
       .from("clientes")
       .update({ estado_lead, updated_at: new Date().toISOString() })
       .eq("id", id)
+      .select()
+      .single()
 
     if (error) throw error
-    return NextResponse.json({ ok: true })
+    return NextResponse.json(data)
   } catch (error) {
     console.error("Error en PATCH /api/clientes:", error)
     return NextResponse.json({ error: "Error interno" }, { status: 500 })

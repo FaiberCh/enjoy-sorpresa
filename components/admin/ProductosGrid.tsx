@@ -1,10 +1,13 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Plus, Edit2, Trash2, Package, Search, X, Save, Loader2, AlertTriangle, Upload, Star } from "lucide-react"
 import type { Producto } from "@/types"
-import { supabase } from "@/lib/supabase"
 import { formatPrecio } from "@/lib/data"
+import { useFocusTrap } from "@/lib/useFocusTrap"
+import { validateImageFile, convertToWebP } from "@/lib/admin/image"
+import { apiGet, apiPost, apiPatch, apiDelete, apiUpload, ApiError } from "@/lib/admin/api"
+import { inputCls, labelCls } from "@/lib/admin/form-styles"
 
 const CATEGORIAS = ["Desayunos", "Detalles", "Decoración", "Globos", "Regalos"]
 
@@ -39,6 +42,7 @@ export default function ProductosGrid() {
   const [dragOver, setDragOver]   = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [formError, setFormError] = useState("")
+  const [actionError, setActionError] = useState("")
   const [urlInput, setUrlInput]   = useState("")
   const fileInputRef              = useRef<HTMLInputElement>(null)
 
@@ -46,8 +50,7 @@ export default function ProductosGrid() {
 
   async function loadProductos() {
     setLoading(true)
-    const { data } = await supabase.from("productos").select("*").order("created_at", { ascending: false })
-    if (data) setProductos(data as Producto[])
+    setProductos(await apiGet<Producto[]>("/api/productos"))
     setLoading(false)
   }
 
@@ -68,11 +71,11 @@ export default function ProductosGrid() {
     setModal({ open: true, editing: p })
   }
 
-  function closeModal() {
+  const closeModal = useCallback(() => {
     setModal({ open: false, editing: null })
     setFormError("")
     setUrlInput("")
-  }
+  }, [])
 
   async function handleSave() {
     if (!form.nombre.trim()) { setFormError("El nombre es requerido."); return }
@@ -80,27 +83,43 @@ export default function ProductosGrid() {
     setSaving(true)
     setFormError("")
 
-    if (modal.editing) {
-      const { error } = await supabase.from("productos").update({ ...form }).eq("id", modal.editing.id)
-      if (error) { setFormError("Error: " + error.message); setSaving(false); return }
-    } else {
-      const { error } = await supabase.from("productos").insert([form])
-      if (error) { setFormError("Error: " + error.message); setSaving(false); return }
+    try {
+      if (modal.editing) {
+        await apiPatch(`/api/productos/${modal.editing.id}`, form)
+      } else {
+        await apiPost("/api/productos", form)
+      }
+    } catch (error) {
+      setFormError(error instanceof ApiError ? error.message : "No se pudo guardar el producto.")
+      setSaving(false)
+      return
     }
+
     setSaving(false)
     closeModal()
     loadProductos()
   }
 
   async function handleDelete(id: string) {
-    await supabase.from("productos").delete().eq("id", id)
-    setDeleteConfirm(null)
-    setProductos((prev) => prev.filter((p) => p.id !== id))
+    setActionError("")
+    try {
+      await apiDelete(`/api/productos/${id}`)
+      setProductos((prev) => prev.filter((p) => p.id !== id))
+    } catch (error) {
+      setActionError(error instanceof ApiError ? error.message : "No se pudo eliminar el producto.")
+    } finally {
+      setDeleteConfirm(null)
+    }
   }
 
   async function toggleDisponible(p: Producto) {
-    await supabase.from("productos").update({ disponible: !p.disponible }).eq("id", p.id)
-    setProductos((prev) => prev.map((x) => x.id === p.id ? { ...x, disponible: !x.disponible } : x))
+    setActionError("")
+    try {
+      await apiPatch(`/api/productos/${p.id}`, { disponible: !p.disponible })
+      setProductos((prev) => prev.map((x) => x.id === p.id ? { ...x, disponible: !x.disponible } : x))
+    } catch (error) {
+      setActionError(error instanceof ApiError ? error.message : "No se pudo actualizar el producto.")
+    }
   }
 
   async function handleImageFiles(files: FileList | null) {
@@ -110,13 +129,27 @@ export default function ProductosGrid() {
     const newUrls: string[] = []
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
-      if (!file.type.startsWith("image/")) continue
-      const ext = file.name.split(".").pop()
-      const fileName = `producto-${Date.now()}-${i}.${ext}`
-      const { error } = await supabase.storage.from("productos").upload(fileName, file, { upsert: true })
-      if (error) { setFormError("Error al subir: " + error.message); setUploading(false); return }
-      const { data: { publicUrl } } = supabase.storage.from("productos").getPublicUrl(fileName)
-      newUrls.push(publicUrl)
+
+      const validationError = validateImageFile(file)
+      if (validationError) { setFormError(validationError); setUploading(false); return }
+
+      let uploadFile: File
+      try {
+        uploadFile = await convertToWebP(file)
+      } catch {
+        setFormError(`No se pudo procesar "${file.name}". Intenta con otra imagen (JPG o PNG).`)
+        setUploading(false)
+        return
+      }
+
+      try {
+        const { url } = await apiUpload<{ url: string }>("/api/productos/upload", uploadFile)
+        newUrls.push(url)
+      } catch (error) {
+        setFormError(error instanceof ApiError ? error.message : "Error al subir la imagen.")
+        setUploading(false)
+        return
+      }
     }
     setForm((prev) => {
       const combined = [...prev.imagenes, ...newUrls]
@@ -152,8 +185,7 @@ export default function ProductosGrid() {
     (p) => p.nombre.toLowerCase().includes(search.toLowerCase()) || p.categoria.toLowerCase().includes(search.toLowerCase())
   )
 
-  const inputCls = "w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-800 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-100 placeholder-gray-300"
-  const labelCls = "block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide"
+  const modalRef = useFocusTrap<HTMLDivElement>(modal.open, closeModal)
 
   return (
     <div className="space-y-4">
@@ -166,6 +198,13 @@ export default function ProductosGrid() {
           <Plus className="w-4 h-4" /> Nuevo producto
         </button>
       </div>
+
+      {actionError && (
+        <div role="alert" className="flex items-center justify-between gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+          <span className="flex items-center gap-2"><AlertTriangle className="w-4 h-4 flex-shrink-0" />{actionError}</span>
+          <button onClick={() => setActionError("")} aria-label="Cerrar" className="text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>
+        </div>
+      )}
 
       {loading && <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-pink-400" /></div>}
 
@@ -215,10 +254,16 @@ export default function ProductosGrid() {
       {modal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={closeModal} />
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="producto-modal-title"
+            className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+          >
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="font-bold text-gray-800">{modal.editing ? "Editar producto" : "Nuevo producto"}</h3>
-              <button onClick={closeModal} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors"><X className="w-4 h-4" /></button>
+              <h3 id="producto-modal-title" className="font-bold text-gray-800">{modal.editing ? "Editar producto" : "Nuevo producto"}</h3>
+              <button onClick={closeModal} aria-label="Cerrar" className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors"><X className="w-4 h-4" /></button>
             </div>
 
             <div className="overflow-y-auto p-6 space-y-4">
@@ -258,11 +303,11 @@ export default function ProductosGrid() {
                               <Star className="w-2.5 h-2.5 fill-current" /> Portada
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100">
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
                             {!isPortada && (
-                              <button type="button" onClick={() => setAsPortada(url)} className="p-1.5 bg-pink-500 rounded-full text-white"><Star className="w-3 h-3" /></button>
+                              <button type="button" onClick={() => setAsPortada(url)} aria-label="Marcar como portada" className="p-1.5 bg-pink-500 rounded-full text-white"><Star className="w-3 h-3" /></button>
                             )}
-                            <button type="button" onClick={() => removeImage(url)} className="p-1.5 bg-red-500 rounded-full text-white"><X className="w-3 h-3" /></button>
+                            <button type="button" onClick={() => removeImage(url)} aria-label="Quitar imagen" className="p-1.5 bg-red-500 rounded-full text-white"><X className="w-3 h-3" /></button>
                           </div>
                         </div>
                       )
@@ -271,15 +316,19 @@ export default function ProductosGrid() {
                 )}
                 <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleImageFiles(e.target.files)} />
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Subir imágenes: arrastra archivos o presiona para elegir"
                   onClick={() => !uploading && fileInputRef.current?.click()}
+                  onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !uploading) { e.preventDefault(); fileInputRef.current?.click() } }}
                   onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={(e) => { e.preventDefault(); setDragOver(false); handleImageFiles(e.dataTransfer.files) }}
-                  className={`w-full flex flex-col items-center gap-1.5 px-3 py-4 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${dragOver ? "border-pink-400 bg-pink-50 text-pink-500" : "border-gray-200 text-gray-400 hover:border-pink-300"} ${uploading ? "opacity-60 cursor-not-allowed" : ""}`}
+                  className={`w-full flex flex-col items-center gap-1.5 px-3 py-4 rounded-xl border-2 border-dashed cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-pink-200 ${dragOver ? "border-pink-400 bg-pink-50 text-pink-500" : "border-gray-200 text-gray-400 hover:border-pink-300"} ${uploading ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   {uploading
                     ? <><Loader2 className="w-5 h-5 animate-spin" /><span className="text-sm">Subiendo...</span></>
-                    : <><Upload className="w-5 h-5" /><span className="text-sm font-medium">{dragOver ? "Suelta aquí" : form.imagenes.length > 0 ? "Agregar más imágenes" : "Arrastra o haz clic"}</span><span className="text-xs opacity-60">Puedes seleccionar varias a la vez</span></>
+                    : <><Upload className="w-5 h-5" /><span className="text-sm font-medium">{dragOver ? "Suelta aquí" : form.imagenes.length > 0 ? "Agregar más imágenes" : "Arrastra o haz clic"}</span><span className="text-xs opacity-60">Varias a la vez · máx. 5MB cada una</span></>
                   }
                 </div>
                 <div className="flex items-center gap-2 my-2">

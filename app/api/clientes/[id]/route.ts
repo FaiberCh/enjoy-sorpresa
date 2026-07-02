@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { supabaseAdmin } from "@/lib/supabase"
 
 export async function GET(
   _req: NextRequest,
@@ -9,8 +9,8 @@ export async function GET(
 
   const [{ data: cliente, error: clienteError }, { data: pedidos, error: pedidosError }] =
     await Promise.all([
-      supabase.from("clientes").select("*").eq("id", id).single(),
-      supabase.from("pedidos").select("*").eq("cliente_id", id).order("created_at", { ascending: false }),
+      supabaseAdmin.from("clientes").select("*").eq("id", id).single(),
+      supabaseAdmin.from("pedidos").select("*").eq("cliente_id", id).order("created_at", { ascending: false }),
     ])
 
   if (clienteError) return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 })

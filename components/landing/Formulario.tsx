@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Send, CheckCircle } from "lucide-react"
+import { Send, CheckCircle, AlertTriangle } from "lucide-react"
 import { FormularioPedidoData } from "@/types"
 import { productosEjemplo } from "@/lib/data"
 import { COLOMBIA, DEPARTAMENTOS } from "@/lib/colombia"
@@ -30,6 +30,8 @@ const schema = z.object({
 export default function Formulario() {
   const [enviado, setEnviado] = useState(false)
   const [enviando, setEnviando] = useState(false)
+  const [submitError, setSubmitError] = useState("")
+  const successHeadingRef = useRef<HTMLHeadingElement>(null)
 
   const {
     register,
@@ -50,8 +52,13 @@ export default function Formulario() {
     setValue("ciudad", "")
   }, [departamento, setValue])
 
+  useEffect(() => {
+    if (enviado) successHeadingRef.current?.focus()
+  }, [enviado])
+
   const onSubmit = async (data: FormData) => {
     setEnviando(true)
+    setSubmitError("")
     try {
       const { departamento: depto, ...rest } = data
       const payload = { ...rest, ciudad: `${data.ciudad}, ${depto}` }
@@ -72,7 +79,7 @@ export default function Formulario() {
       )
       window.open(`https://wa.me/573506182545?text=${mensaje}`, "_blank")
     } catch {
-      alert("Hubo un error. Por favor intenta de nuevo.")
+      setSubmitError("No se pudo enviar tu pedido. Revisa tu conexión e intenta de nuevo.")
     } finally {
       setEnviando(false)
     }
@@ -81,9 +88,11 @@ export default function Formulario() {
   if (enviado) {
     return (
       <section id="pedido" className="py-20 bg-white">
-        <div className="max-w-xl mx-auto px-4 text-center">
-          <CheckCircle size={64} className="text-pink-500 mx-auto mb-4" />
-          <h2 className="text-3xl font-bold text-gray-800 mb-3">¡Pedido Recibido!</h2>
+        <div className="max-w-xl mx-auto px-4 text-center" role="status">
+          <CheckCircle size={64} className="text-pink-500 mx-auto mb-4" aria-hidden="true" />
+          <h2 ref={successHeadingRef} tabIndex={-1} className="text-3xl font-bold text-gray-800 mb-3 focus:outline-none">
+            ¡Pedido Recibido!
+          </h2>
           <p className="text-gray-600 mb-6">
             Te hemos abierto WhatsApp para que puedas continuar la conversación con nosotros.
           </p>
@@ -111,34 +120,42 @@ export default function Formulario() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
           {/* Nombre y WhatsApp */}
           <div className="grid sm:grid-cols-2 gap-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="pedido-nombre" className="block text-sm font-medium text-gray-700 mb-1">
                 Nombre completo *
               </label>
               <input
+                id="pedido-nombre"
                 {...register("nombre")}
                 placeholder="Tu nombre"
+                required
+                aria-invalid={!!errors.nombre}
+                aria-describedby={errors.nombre ? "pedido-nombre-error" : undefined}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-200"
               />
               {errors.nombre && (
-                <p className="text-red-500 text-xs mt-1">{errors.nombre.message}</p>
+                <p id="pedido-nombre-error" role="alert" className="text-red-500 text-xs mt-1">{errors.nombre.message}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="pedido-whatsapp" className="block text-sm font-medium text-gray-700 mb-1">
                 WhatsApp *
               </label>
               <input
+                id="pedido-whatsapp"
                 {...register("whatsapp")}
                 placeholder="3001234567"
+                required
+                aria-invalid={!!errors.whatsapp}
+                aria-describedby={errors.whatsapp ? "pedido-whatsapp-error" : undefined}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-200"
               />
               {errors.whatsapp && (
-                <p className="text-red-500 text-xs mt-1">{errors.whatsapp.message}</p>
+                <p id="pedido-whatsapp-error" role="alert" className="text-red-500 text-xs mt-1">{errors.whatsapp.message}</p>
               )}
             </div>
           </div>
@@ -146,11 +163,15 @@ export default function Formulario() {
           {/* Departamento y Ciudad en cascada */}
           <div className="grid sm:grid-cols-2 gap-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="pedido-departamento" className="block text-sm font-medium text-gray-700 mb-1">
                 Departamento *
               </label>
               <select
+                id="pedido-departamento"
                 {...register("departamento")}
+                required
+                aria-invalid={!!errors.departamento}
+                aria-describedby={errors.departamento ? "pedido-departamento-error" : undefined}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-200 bg-white"
               >
                 <option value="">Selecciona un departamento</option>
@@ -159,17 +180,21 @@ export default function Formulario() {
                 ))}
               </select>
               {errors.departamento && (
-                <p className="text-red-500 text-xs mt-1">{errors.departamento.message}</p>
+                <p id="pedido-departamento-error" role="alert" className="text-red-500 text-xs mt-1">{errors.departamento.message}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="pedido-ciudad" className="block text-sm font-medium text-gray-700 mb-1">
                 Ciudad *
               </label>
               <select
+                id="pedido-ciudad"
                 {...register("ciudad")}
                 disabled={!departamento}
+                required
+                aria-invalid={!!errors.ciudad}
+                aria-describedby={errors.ciudad ? "pedido-ciudad-error" : undefined}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-200 bg-white disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
               >
                 <option value="">
@@ -180,7 +205,7 @@ export default function Formulario() {
                 ))}
               </select>
               {errors.ciudad && (
-                <p className="text-red-500 text-xs mt-1">{errors.ciudad.message}</p>
+                <p id="pedido-ciudad-error" role="alert" className="text-red-500 text-xs mt-1">{errors.ciudad.message}</p>
               )}
             </div>
           </div>
@@ -188,22 +213,29 @@ export default function Formulario() {
           {/* Email y Fecha */}
           <div className="grid sm:grid-cols-2 gap-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="pedido-email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email (opcional)
               </label>
               <input
+                id="pedido-email"
                 {...register("email")}
                 placeholder="tu@email.com"
                 type="email"
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? "pedido-email-error" : undefined}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-200"
               />
+              {errors.email && (
+                <p id="pedido-email-error" role="alert" className="text-red-500 text-xs mt-1">{errors.email.message}</p>
+              )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="pedido-fecha" className="block text-sm font-medium text-gray-700 mb-1">
                 Fecha del evento (opcional)
               </label>
               <input
+                id="pedido-fecha"
                 {...register("fecha_evento")}
                 type="date"
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-200"
@@ -212,11 +244,15 @@ export default function Formulario() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="pedido-producto" className="block text-sm font-medium text-gray-700 mb-1">
               Producto de interés *
             </label>
             <select
+              id="pedido-producto"
               {...register("producto_interes")}
+              required
+              aria-invalid={!!errors.producto_interes}
+              aria-describedby={errors.producto_interes ? "pedido-producto-error" : undefined}
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-200 bg-white"
             >
               <option value="">Selecciona un producto</option>
@@ -228,22 +264,26 @@ export default function Formulario() {
               <option value="Otro">Otro / Personalizado</option>
             </select>
             {errors.producto_interes && (
-              <p className="text-red-500 text-xs mt-1">{errors.producto_interes.message}</p>
+              <p id="pedido-producto-error" role="alert" className="text-red-500 text-xs mt-1">{errors.producto_interes.message}</p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="pedido-descripcion" className="block text-sm font-medium text-gray-700 mb-1">
               Cuéntanos sobre tu pedido *
             </label>
             <textarea
+              id="pedido-descripcion"
               {...register("descripcion")}
               rows={4}
               placeholder="¿Para qué ocasión es? ¿Tienes colores o temas preferidos? ¿Algún detalle especial?"
+              required
+              aria-invalid={!!errors.descripcion}
+              aria-describedby={errors.descripcion ? "pedido-descripcion-error" : undefined}
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-200 resize-none"
             />
             {errors.descripcion && (
-              <p className="text-red-500 text-xs mt-1">{errors.descripcion.message}</p>
+              <p id="pedido-descripcion-error" role="alert" className="text-red-500 text-xs mt-1">{errors.descripcion.message}</p>
             )}
           </div>
 
@@ -263,6 +303,9 @@ export default function Formulario() {
               <input
                 type="checkbox"
                 {...register("acepta_datos")}
+                required
+                aria-invalid={!!errors.acepta_datos}
+                aria-describedby={errors.acepta_datos ? "pedido-acepta-datos-error" : undefined}
                 className="mt-0.5 accent-pink-500"
               />
               <span className="text-sm text-gray-600">
@@ -271,16 +314,22 @@ export default function Formulario() {
               </span>
             </label>
             {errors.acepta_datos && (
-              <p className="text-red-500 text-xs">{errors.acepta_datos.message}</p>
+              <p id="pedido-acepta-datos-error" role="alert" className="text-red-500 text-xs">{errors.acepta_datos.message}</p>
             )}
           </div>
+
+          {submitError && (
+            <div role="alert" className="flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />{submitError}
+            </div>
+          )}
 
           <button
             type="submit"
             disabled={enviando}
             className="w-full bg-pink-500 hover:bg-pink-600 disabled:bg-pink-300 text-white py-4 rounded-full font-medium transition-colors flex items-center justify-center gap-2"
           >
-            <Send size={18} />
+            <Send size={18} aria-hidden="true" />
             {enviando ? "Enviando..." : "Enviar Pedido por WhatsApp"}
           </button>
         </form>

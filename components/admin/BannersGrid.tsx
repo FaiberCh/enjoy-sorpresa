@@ -1,12 +1,15 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import {
   Plus, Edit2, Trash2, X, Save, Loader2, AlertTriangle,
   Upload, Eye, EyeOff, ChevronUp, ChevronDown, Megaphone, Maximize2,
 } from "lucide-react"
 import type { Banner } from "@/types"
-import { supabase } from "@/lib/supabase"
+import { useFocusTrap } from "@/lib/useFocusTrap"
+import { validateImageFile, convertToWebP } from "@/lib/admin/image"
+import { apiGet, apiPost, apiPatch, apiDelete, apiUpload, ApiError } from "@/lib/admin/api"
+import { inputCls, labelCls } from "@/lib/admin/form-styles"
 
 type FormData = Omit<Banner, "id" | "created_at">
 
@@ -21,9 +24,6 @@ const emptyForm: FormData = {
   activo: true,
 }
 
-const inputCls = "w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-800 text-sm focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-100 placeholder-gray-300"
-const labelCls = "block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide"
-
 export default function BannersGrid() {
   const [banners, setBanners]           = useState<Banner[]>([])
   const [loading, setLoading]           = useState(true)
@@ -35,14 +35,14 @@ export default function BannersGrid() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [previewBanner, setPreviewBanner] = useState<Banner | null>(null)
   const [formError, setFormError]       = useState("")
+  const [actionError, setActionError]   = useState("")
   const fileInputRef                    = useRef<HTMLInputElement>(null)
 
   useEffect(() => { loadBanners() }, [])
 
   async function loadBanners() {
     setLoading(true)
-    const { data } = await supabase.from("banners").select("*").order("orden", { ascending: true })
-    if (data) setBanners(data as Banner[])
+    setBanners(await apiGet<Banner[]>("/api/banners"))
     setLoading(false)
   }
 
@@ -68,37 +68,55 @@ export default function BannersGrid() {
     setModal({ open: true, editing: b })
   }
 
-  function closeModal() {
+  const closeModal = useCallback(() => {
     setModal({ open: false, editing: null })
     setFormError("")
-  }
+  }, [])
+
+  const modalRef = useFocusTrap<HTMLDivElement>(modal.open, closeModal)
 
   async function handleSave() {
     if (!form.titulo.trim()) { setFormError("El título es requerido."); return }
     setSaving(true)
     setFormError("")
 
-    if (modal.editing) {
-      const { error } = await supabase.from("banners").update({ ...form }).eq("id", modal.editing.id)
-      if (error) { setFormError("Error: " + error.message); setSaving(false); return }
-    } else {
-      const { error } = await supabase.from("banners").insert([form])
-      if (error) { setFormError("Error: " + error.message); setSaving(false); return }
+    try {
+      if (modal.editing) {
+        await apiPatch(`/api/banners/${modal.editing.id}`, form)
+      } else {
+        await apiPost("/api/banners", form)
+      }
+    } catch (error) {
+      setFormError(error instanceof ApiError ? error.message : "No se pudo guardar el banner.")
+      setSaving(false)
+      return
     }
+
     setSaving(false)
     closeModal()
     loadBanners()
   }
 
   async function handleDelete(id: string) {
-    await supabase.from("banners").delete().eq("id", id)
-    setDeleteConfirm(null)
-    setBanners((prev) => prev.filter((b) => b.id !== id))
+    setActionError("")
+    try {
+      await apiDelete(`/api/banners/${id}`)
+      setBanners((prev) => prev.filter((b) => b.id !== id))
+    } catch (error) {
+      setActionError(error instanceof ApiError ? error.message : "No se pudo eliminar el banner.")
+    } finally {
+      setDeleteConfirm(null)
+    }
   }
 
   async function toggleActivo(b: Banner) {
-    await supabase.from("banners").update({ activo: !b.activo }).eq("id", b.id)
-    setBanners((prev) => prev.map((x) => x.id === b.id ? { ...x, activo: !x.activo } : x))
+    setActionError("")
+    try {
+      await apiPatch(`/api/banners/${b.id}`, { activo: !b.activo })
+      setBanners((prev) => prev.map((x) => x.id === b.id ? { ...x, activo: !x.activo } : x))
+    } catch (error) {
+      setActionError(error instanceof ApiError ? error.message : "No se pudo actualizar el banner.")
+    }
   }
 
   async function moveOrden(b: Banner, dir: "up" | "down") {
@@ -107,11 +125,16 @@ export default function BannersGrid() {
     const swapIdx = dir === "up" ? idx - 1 : idx + 1
     if (swapIdx < 0 || swapIdx >= sorted.length) return
     const other = sorted[swapIdx]
-    await Promise.all([
-      supabase.from("banners").update({ orden: other.orden }).eq("id", b.id),
-      supabase.from("banners").update({ orden: b.orden }).eq("id", other.id),
-    ])
-    loadBanners()
+    setActionError("")
+    try {
+      await Promise.all([
+        apiPatch(`/api/banners/${b.id}`, { orden: other.orden }),
+        apiPatch(`/api/banners/${other.id}`, { orden: b.orden }),
+      ])
+      loadBanners()
+    } catch (error) {
+      setActionError(error instanceof ApiError ? error.message : "No se pudo reordenar el banner.")
+    }
   }
 
   async function handleImageUpload(files: FileList | null) {
@@ -119,12 +142,27 @@ export default function BannersGrid() {
     setUploading(true)
     setFormError("")
     const file = files[0]
-    const ext = file.name.split(".").pop()
-    const fileName = `banner-${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from("productos").upload(fileName, file, { upsert: true })
-    if (error) { setFormError("Error al subir: " + error.message); setUploading(false); return }
-    const { data: { publicUrl } } = supabase.storage.from("productos").getPublicUrl(fileName)
-    setForm((prev) => ({ ...prev, imagen_url: publicUrl }))
+
+    const validationError = validateImageFile(file)
+    if (validationError) { setFormError(validationError); setUploading(false); return }
+
+    let uploadFile: File
+    try {
+      uploadFile = await convertToWebP(file)
+    } catch {
+      setFormError(`No se pudo procesar "${file.name}". Intenta con otra imagen (JPG o PNG).`)
+      setUploading(false)
+      return
+    }
+
+    try {
+      const { url } = await apiUpload<{ url: string }>("/api/banners/upload", uploadFile)
+      setForm((prev) => ({ ...prev, imagen_url: url }))
+    } catch (error) {
+      setFormError(error instanceof ApiError ? error.message : "Error al subir la imagen.")
+      setUploading(false)
+      return
+    }
     setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
@@ -137,6 +175,13 @@ export default function BannersGrid() {
           <Plus className="w-4 h-4" /> Nuevo banner
         </button>
       </div>
+
+      {actionError && (
+        <div role="alert" className="flex items-center justify-between gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+          <span className="flex items-center gap-2"><AlertTriangle className="w-4 h-4 flex-shrink-0" />{actionError}</span>
+          <button onClick={() => setActionError("")} aria-label="Cerrar" className="text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>
+        </div>
+      )}
 
       {loading && <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-pink-400" /></div>}
 
@@ -225,10 +270,16 @@ export default function BannersGrid() {
       {modal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={closeModal} />
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="banner-modal-title"
+            className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+          >
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="font-bold text-gray-800">{modal.editing ? "Editar banner" : "Nuevo banner"}</h3>
-              <button onClick={closeModal} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors"><X className="w-4 h-4" /></button>
+              <h3 id="banner-modal-title" className="font-bold text-gray-800">{modal.editing ? "Editar banner" : "Nuevo banner"}</h3>
+              <button onClick={closeModal} aria-label="Cerrar" className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors"><X className="w-4 h-4" /></button>
             </div>
 
             <div className="overflow-y-auto p-6 space-y-4">
@@ -261,18 +312,25 @@ export default function BannersGrid() {
                 <label className={labelCls}>Imagen de fondo (opcional)</label>
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e.target.files)} />
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Subir imagen: arrastra un archivo o presiona para elegir"
                   onClick={() => !uploading && fileInputRef.current?.click()}
+                  onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !uploading) { e.preventDefault(); fileInputRef.current?.click() } }}
                   onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={(e) => { e.preventDefault(); setDragOver(false); handleImageUpload(e.dataTransfer.files) }}
-                  className={`w-full flex flex-col items-center gap-1.5 px-3 py-4 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${dragOver ? "border-pink-400 bg-pink-50 text-pink-500" : "border-gray-200 text-gray-400 hover:border-pink-300"} ${uploading ? "opacity-60 cursor-not-allowed" : ""}`}
+                  className={`w-full flex flex-col items-center gap-1.5 px-3 py-4 rounded-xl border-2 border-dashed cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-pink-200 ${dragOver ? "border-pink-400 bg-pink-50 text-pink-500" : "border-gray-200 text-gray-400 hover:border-pink-300"} ${uploading ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
-                  {uploading ? <><Loader2 className="w-5 h-5 animate-spin" /><span className="text-sm">Subiendo...</span></> : <><Upload className="w-5 h-5" /><span className="text-sm font-medium">{dragOver ? "Suelta aquí" : "Arrastra o haz clic"}</span></>}
+                  {uploading
+                    ? <><Loader2 className="w-5 h-5 animate-spin" /><span className="text-sm">Subiendo...</span></>
+                    : <><Upload className="w-5 h-5" /><span className="text-sm font-medium">{dragOver ? "Suelta aquí" : "Arrastra o haz clic"}</span><span className="text-xs opacity-60">Máx. 5MB</span></>
+                  }
                 </div>
                 {form.imagen_url && (
                   <div className="mt-2 h-24 rounded-xl overflow-hidden border border-gray-200 relative">
                     <img src={form.imagen_url} alt="preview" className="w-full h-full object-cover" />
-                    <button type="button" onClick={() => setForm({ ...form, imagen_url: "" })} className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/50 text-white"><X className="w-3 h-3" /></button>
+                    <button type="button" onClick={() => setForm({ ...form, imagen_url: "" })} aria-label="Quitar imagen" className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/50 text-white"><X className="w-3 h-3" /></button>
                   </div>
                 )}
                 <div className="flex items-center gap-2 mt-2">

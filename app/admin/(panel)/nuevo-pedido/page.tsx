@@ -2,17 +2,20 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { CheckCircle } from "lucide-react"
+import { CheckCircle, AlertTriangle } from "lucide-react"
 import { productosEjemplo } from "@/lib/data"
+import { apiPost } from "@/lib/admin/api"
 
 export default function NuevoPedidoPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [guardado, setGuardado] = useState(false)
+  const [formError, setFormError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
+    setFormError("")
 
     const form = new FormData(e.currentTarget)
     const data = {
@@ -28,17 +31,12 @@ export default function NuevoPedidoPage() {
       acepta_datos: true,
     }
 
-    const res = await fetch("/api/pedidos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    })
-
-    if (res.ok) {
+    try {
+      await apiPost("/api/pedidos", data)
       setGuardado(true)
       setTimeout(() => router.push("/admin/pedidos"), 1500)
-    } else {
-      alert("Error al guardar el pedido")
+    } catch {
+      setFormError("No se pudo guardar el pedido. Revisa tu conexión e intenta de nuevo.")
       setLoading(false)
     }
   }
@@ -122,6 +120,12 @@ export default function NuevoPedidoPage() {
           <input name="fecha_evento" type="date"
             className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-pink-400" />
         </div>
+
+        {formError && (
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />{formError}
+          </div>
+        )}
 
         <button type="submit" disabled={loading}
           className="w-full bg-pink-500 hover:bg-pink-600 disabled:bg-pink-300 text-white py-3 rounded-full font-medium transition-colors">
