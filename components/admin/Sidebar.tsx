@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, usePathname } from "next/navigation"
-import { LayoutDashboard, Users, ShoppingBag, LogOut, PlusCircle, UserPlus, Package, Megaphone } from "lucide-react"
+import { LayoutDashboard, Users, ShoppingBag, LogOut, PlusCircle, UserPlus, Package, Megaphone, Settings } from "lucide-react"
 import { logout } from "@/lib/admin/logout"
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { href: "/admin/banners", label: "Banners", icon: Megaphone },
   { href: "/admin/nuevo-pedido", label: "Nuevo Pedido", icon: PlusCircle },
   { href: "/admin/nuevo-cliente", label: "Nuevo Cliente", icon: UserPlus },
+  { href: "/admin/configuracion", label: "Configuración", icon: Settings },
 ]
 
 export default function Sidebar() {

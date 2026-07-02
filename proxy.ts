@@ -34,5 +34,6 @@ export const config = {
     "/api/pedidos/:path*",
     "/api/productos/:path*",
     "/api/banners/:path*",
+    "/api/admin/password",
   ],
 }

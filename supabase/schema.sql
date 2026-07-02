@@ -65,6 +65,16 @@ create table if not exists banners (
   created_at timestamptz default now() not null
 );
 
+-- Credenciales del admin (registro único, id fijo en 1). Reemplaza la env
+-- var ADMIN_PASSWORD: la contraseña se guarda hasheada (bcrypt) y se puede
+-- cambiar desde el panel sin tocar Vercel.
+create table if not exists admin_settings (
+  id int primary key default 1,
+  password_hash text not null,
+  updated_at timestamptz default now() not null,
+  constraint admin_settings_singleton check (id = 1)
+);
+
 -- Rate limiting del login de admin
 create table if not exists login_attempts (
   id uuid default gen_random_uuid() primary key,
@@ -92,6 +102,11 @@ create trigger clientes_updated_at
 drop trigger if exists pedidos_updated_at on pedidos;
 create trigger pedidos_updated_at
   before update on pedidos
+  for each row execute function update_updated_at();
+
+drop trigger if exists admin_settings_updated_at on admin_settings;
+create trigger admin_settings_updated_at
+  before update on admin_settings
   for each row execute function update_updated_at();
 
 -- Función para marcar clientes inactivos (más de 30 días sin actualizar)
@@ -150,6 +165,7 @@ alter table pedidos enable row level security;
 alter table productos enable row level security;
 alter table banners enable row level security;
 alter table login_attempts enable row level security;
+alter table admin_settings enable row level security;
 
 -- GRANTs para service_role — Supabase NO los otorga automáticamente
 -- para estas tablas; sin esto, el rol recibe "permission denied"
@@ -160,6 +176,7 @@ grant all on public.pedidos        to service_role;
 grant all on public.productos      to service_role;
 grant all on public.banners        to service_role;
 grant all on public.login_attempts to service_role;
+grant all on public.admin_settings  to service_role;
 grant execute on function record_login_attempt(text, int, int) to service_role;
 
 -- Storage: las fotos de producto/banner deben seguir siendo visibles

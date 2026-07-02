@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
+import bcrypt from "bcryptjs"
 import { supabaseAdmin } from "@/lib/supabase"
 
 const MAX_ATTEMPTS = 5
@@ -38,7 +39,23 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null)
   const password = body?.password
 
-  if (typeof password !== "string" || password !== process.env.ADMIN_PASSWORD) {
+  if (typeof password !== "string") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const { data: settings, error: settingsError } = await supabaseAdmin
+    .from("admin_settings")
+    .select("password_hash")
+    .eq("id", 1)
+    .single()
+
+  if (settingsError || !settings) {
+    console.error("Error leyendo admin_settings:", settingsError)
+    return NextResponse.json({ error: "Error interno" }, { status: 500 })
+  }
+
+  const passwordMatches = await bcrypt.compare(password, settings.password_hash)
+  if (!passwordMatches) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
