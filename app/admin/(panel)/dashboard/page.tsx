@@ -3,8 +3,18 @@ export const dynamic = "force-dynamic"
 import Link from "next/link"
 import { supabaseAdmin as supabase } from "@/lib/supabase"
 import { Users, ShoppingBag, TrendingUp, Clock } from "lucide-react"
-import { estadoPedidoColors } from "@/lib/admin/estado-colors"
-import type { EstadoPedido } from "@/types"
+import {
+  estadoPedidoColors,
+  estadoPedidoLabels,
+  estadoPedidoOpciones,
+  estadoLeadLabels,
+  estadoLeadOpciones,
+} from "@/lib/admin/estado-colors"
+import { formatFecha } from "@/lib/admin/date"
+import type { EstadoPedido, EstadoLead } from "@/types"
+import PedidosEstadoChart from "@/components/admin/dashboard/PedidosEstadoChart"
+import ClientesPipelineChart from "@/components/admin/dashboard/ClientesPipelineChart"
+import PedidosTendenciaChart from "@/components/admin/dashboard/PedidosTendenciaChart"
 
 type PedidoReciente = {
   id: string
@@ -14,6 +24,8 @@ type PedidoReciente = {
   estado: EstadoPedido
   cliente: { nombre: string } | null
 }
+
+const DIAS_TENDENCIA = 30
 
 async function getStats() {
   const [{ count: totalClientes }, { count: totalPedidos }, { count: pedidosPendientes }, { count: compraron }] =
@@ -42,8 +54,64 @@ async function getUltimosPedidos(): Promise<PedidoReciente[]> {
   return (data as unknown as PedidoReciente[]) ?? []
 }
 
+async function getPedidosPorEstado() {
+  const { data } = await supabase.from("pedidos").select("estado")
+
+  const counts: Record<EstadoPedido, number> = { pendiente: 0, en_proceso: 0, entregado: 0, cancelado: 0 }
+  data?.forEach((p) => {
+    const estado = p.estado as EstadoPedido
+    counts[estado] = (counts[estado] ?? 0) + 1
+  })
+
+  return estadoPedidoOpciones.map((estado) => ({ estado, label: estadoPedidoLabels[estado], count: counts[estado] }))
+}
+
+async function getClientesPorEtapa() {
+  const { data } = await supabase.from("clientes").select("estado_lead")
+
+  const counts: Record<EstadoLead, number> = { interesado: 0, en_negociacion: 0, compro: 0, no_compro: 0, inactivo: 0 }
+  data?.forEach((c) => {
+    const estado = c.estado_lead as EstadoLead
+    counts[estado] = (counts[estado] ?? 0) + 1
+  })
+
+  return estadoLeadOpciones.map((estado) => ({ estado, label: estadoLeadLabels[estado], value: counts[estado] }))
+}
+
+async function getPedidosTendencia() {
+  const desde = new Date()
+  desde.setDate(desde.getDate() - (DIAS_TENDENCIA - 1))
+  desde.setHours(0, 0, 0, 0)
+
+  const { data } = await supabase.from("pedidos").select("created_at").gte("created_at", desde.toISOString())
+
+  const buckets = new Map<string, number>()
+  for (let i = 0; i < DIAS_TENDENCIA; i++) {
+    const dia = new Date(desde)
+    dia.setDate(desde.getDate() + i)
+    buckets.set(dia.toISOString().slice(0, 10), 0)
+  }
+
+  data?.forEach((p) => {
+    const dia = String(p.created_at).slice(0, 10)
+    if (buckets.has(dia)) buckets.set(dia, (buckets.get(dia) ?? 0) + 1)
+  })
+
+  return Array.from(buckets.entries()).map(([fecha, count]) => ({
+    fecha,
+    label: formatFecha(fecha, { day: "numeric", month: "short" }),
+    count,
+  }))
+}
+
 export default async function Dashboard() {
-  const [stats, pedidos] = await Promise.all([getStats(), getUltimosPedidos()])
+  const [stats, pedidos, pedidosPorEstado, clientesPorEtapa, pedidosTendencia] = await Promise.all([
+    getStats(),
+    getUltimosPedidos(),
+    getPedidosPorEstado(),
+    getClientesPorEtapa(),
+    getPedidosTendencia(),
+  ])
 
   const statCards = [
     { label: "Total Clientes", value: stats.totalClientes, icon: Users, color: "text-pink-500", href: "/admin/clientes" },
@@ -66,6 +134,22 @@ export default async function Dashboard() {
             <p className="text-3xl font-bold text-gray-800">{value}</p>
           </Link>
         ))}
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-4 mb-4">
+        <div className="bg-white rounded-2xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">Pedidos por estado</h2>
+          <PedidosEstadoChart data={pedidosPorEstado} />
+        </div>
+        <div className="bg-white rounded-2xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">Clientes por etapa</h2>
+          <ClientesPipelineChart data={clientesPorEtapa} />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
+        <h2 className="text-lg font-semibold text-gray-800 mb-2">Pedidos últimos {DIAS_TENDENCIA} días</h2>
+        <PedidosTendenciaChart data={pedidosTendencia} />
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm p-6">

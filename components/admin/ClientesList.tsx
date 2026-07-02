@@ -1,13 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { MessageCircle, Download, Search, Eye } from "lucide-react"
+import { MessageCircle, Download, Search, Eye, List, Columns3 } from "lucide-react"
 import { Cliente, EstadoLead } from "@/types"
 import { estadoLeadColors as estadoColors, estadoLeadOpciones as estadoOpciones } from "@/lib/admin/estado-colors"
 import { apiPatch } from "@/lib/admin/api"
 import { formatFecha } from "@/lib/admin/date"
 import { useUndoToast } from "@/lib/admin/useUndoToast"
 import UndoToast from "@/components/admin/UndoToast"
+import ClientesKanban from "@/components/admin/ClientesKanban"
 
 type ClientesListProps = {
   initialClientes: Cliente[]
@@ -22,6 +23,7 @@ export default function ClientesList({ initialClientes, initialFiltro }: Cliente
   const [clientes, setClientes] = useState<Cliente[]>(initialClientes)
   const [filtro, setFiltro] = useState<EstadoLead | "todos">(resolveFiltro(initialFiltro))
   const [busqueda, setBusqueda] = useState("")
+  const [vista, setVista] = useState<"tabla" | "pipeline">("tabla")
   const { toast, showUndo, dismiss } = useUndoToast()
 
   // Re-sincroniza al navegar client-side entre variantes de query string de
@@ -66,29 +68,55 @@ export default function ClientesList({ initialClientes, initialFiltro }: Cliente
     a.click()
   }
 
-  const clientesFiltrados = clientes.filter((c) => {
-    const coincideEstado = filtro === "todos" || c.estado_lead === filtro
+  const coincideBusqueda = (c: Cliente) => {
     const texto = busqueda.toLowerCase()
-    const coincideBusqueda =
+    return (
       !texto ||
       c.nombre.toLowerCase().includes(texto) ||
       c.whatsapp.includes(texto) ||
       c.ciudad.toLowerCase().includes(texto) ||
       c.email?.toLowerCase().includes(texto)
-    return coincideEstado && coincideBusqueda
-  })
+    )
+  }
+
+  const clientesFiltrados = clientes.filter((c) => (filtro === "todos" || c.estado_lead === filtro) && coincideBusqueda(c))
+  const clientesPipeline = clientes.filter(coincideBusqueda)
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Clientes</h1>
-        <button
-          onClick={exportarCSV}
-          className="flex items-center gap-2 bg-pink-500 hover:bg-pink-600 text-white text-sm px-4 py-2 rounded-full transition-colors"
-        >
-          <Download size={14} />
-          Exportar CSV
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex bg-white rounded-full shadow-sm p-1" role="group" aria-label="Vista de clientes">
+            <button
+              onClick={() => setVista("tabla")}
+              aria-pressed={vista === "tabla"}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors ${
+                vista === "tabla" ? "bg-pink-500 text-white" : "text-gray-500 hover:bg-pink-50"
+              }`}
+            >
+              <List size={14} />
+              Tabla
+            </button>
+            <button
+              onClick={() => setVista("pipeline")}
+              aria-pressed={vista === "pipeline"}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors ${
+                vista === "pipeline" ? "bg-pink-500 text-white" : "text-gray-500 hover:bg-pink-50"
+              }`}
+            >
+              <Columns3 size={14} />
+              Pipeline
+            </button>
+          </div>
+          <button
+            onClick={exportarCSV}
+            className="flex items-center gap-2 bg-pink-500 hover:bg-pink-600 text-white text-sm px-4 py-2 rounded-full transition-colors"
+          >
+            <Download size={14} />
+            Exportar CSV
+          </button>
+        </div>
       </div>
 
       {/* Buscador */}
@@ -102,25 +130,29 @@ export default function ClientesList({ initialClientes, initialFiltro }: Cliente
         />
       </div>
 
-      {/* Filtros por estado */}
-      <div className="flex flex-wrap gap-2 mb-5">
-        {(["todos", ...estadoOpciones] as const).map((op) => (
-          <button
-            key={op}
-            onClick={() => setFiltro(op)}
-            className={`px-4 py-1.5 rounded-full text-sm transition-colors ${
-              filtro === op
-                ? "bg-pink-500 text-white"
-                : "bg-white text-gray-600 hover:bg-pink-50 shadow-sm"
-            }`}
-          >
-            {op === "todos" ? "Todos" : op.replace("_", " ")} (
-            {op === "todos" ? clientes.length : clientes.filter((c) => c.estado_lead === op).length})
-          </button>
-        ))}
-      </div>
+      {/* Filtros por estado (solo en vista de tabla; el pipeline ya muestra todas las etapas) */}
+      {vista === "tabla" && (
+        <div className="flex flex-wrap gap-2 mb-5">
+          {(["todos", ...estadoOpciones] as const).map((op) => (
+            <button
+              key={op}
+              onClick={() => setFiltro(op)}
+              className={`px-4 py-1.5 rounded-full text-sm transition-colors ${
+                filtro === op
+                  ? "bg-pink-500 text-white"
+                  : "bg-white text-gray-600 hover:bg-pink-50 shadow-sm"
+              }`}
+            >
+              {op === "todos" ? "Todos" : op.replace("_", " ")} (
+              {op === "todos" ? clientes.length : clientes.filter((c) => c.estado_lead === op).length})
+            </button>
+          ))}
+        </div>
+      )}
 
-      {clientesFiltrados.length === 0 ? (
+      {vista === "pipeline" ? (
+        <ClientesKanban clientes={clientesPipeline} onCambiarEstado={handleCambiarEstado} />
+      ) : clientesFiltrados.length === 0 ? (
         <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
           <p className="text-gray-400">No se encontraron clientes.</p>
         </div>

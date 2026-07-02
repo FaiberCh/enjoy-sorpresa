@@ -9,6 +9,13 @@ export const estadoPedidoColors: Record<EstadoPedido, string> = {
 
 export const estadoPedidoOpciones: EstadoPedido[] = ["pendiente", "en_proceso", "entregado", "cancelado"]
 
+export const estadoPedidoLabels: Record<EstadoPedido, string> = {
+  pendiente: "Pendiente",
+  en_proceso: "En proceso",
+  entregado: "Entregado",
+  cancelado: "Cancelado",
+}
+
 export const estadoLeadColors: Record<EstadoLead, string> = {
   interesado: "bg-blue-100 text-blue-700",
   en_negociacion: "bg-purple-100 text-purple-700",
@@ -18,3 +25,11 @@ export const estadoLeadColors: Record<EstadoLead, string> = {
 }
 
 export const estadoLeadOpciones: EstadoLead[] = ["interesado", "en_negociacion", "compro", "no_compro", "inactivo"]
+
+export const estadoLeadLabels: Record<EstadoLead, string> = {
+  interesado: "Interesado",
+  en_negociacion: "En negociación",
+  compro: "Compró",
+  no_compro: "No compró",
+  inactivo: "Inactivo",
+}
